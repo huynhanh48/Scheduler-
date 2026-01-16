@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Car` MODIFY `colors` VARCHAR(191) NOT NULL;
