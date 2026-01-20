@@ -12,10 +12,11 @@ const Authorization = async (req: Request, res: Response, next: NextFunction) =>
     }
     const formatToken = token?.split("Bearer ")[1] || "";
     const userId = deCodeJwt({ token: formatToken, privateKey: SECRET_KEY }) as { id: number }
+    console.log("userid : ", userId.id)
     try {
         const user = await prisma.user.findFirstOrThrow({
             where: {
-                id: Number(userId)
+                id: Number(userId.id)
             }
         })
         if (user) req.user = user
