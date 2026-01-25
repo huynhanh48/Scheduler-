@@ -9,6 +9,7 @@ SchedulerRouter.get("/", Authorization, ErrorHandler(SchedulerController.GetAll)
 SchedulerRouter.get("/:id", ErrorHandler(SchedulerController.GetById))
 SchedulerRouter.post("/", Authorization, ErrorHandler(SchedulerController.Create))
 SchedulerRouter.put("/:id", ErrorHandler(SchedulerController.Edit))
+SchedulerRouter.put("/seen/:id", ErrorHandler(SchedulerController.isSeen))
 SchedulerRouter.delete("/:id", ErrorHandler(SchedulerController.Delete))
 
 export default SchedulerRouter

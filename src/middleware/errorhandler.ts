@@ -9,6 +9,7 @@ const ErrorHandler = (method: RequestHandler) => {
         try {
             await method(req, res, next);
         } catch (error) {
+            console.log(error)
             let exception: HttpException
 
             if (error instanceof ZodError) {

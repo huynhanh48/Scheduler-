@@ -1,11 +1,17 @@
-import { NextFunction, Request, Response } from "express-serve-static-core";
+import { NextFunction, Request, Response } from "express";
 import RootMethod from "./root.js";
 import { prisma } from "~/lib/prisma.js";
 import CarSchema from "~/schema/car.js";
 
 class Car implements RootMethod {
     async GetAll(req: Request, res: Response, next: NextFunction) {
-        const Cars = await prisma.car.findMany({})
+        const userId = Number(req.user?.id)
+        const Cars = await prisma.car.findMany({
+            where: { userId },
+            orderBy: {
+                createAt: "desc"
+            }
+        })
         return res.json(Cars)
     }
     async GetById(req: Request, res: Response, next: NextFunction) {
@@ -15,12 +21,14 @@ class Car implements RootMethod {
     }
     async Create(req: Request, res: Response, next: NextFunction) {
         const validationCar = CarSchema.parse(req.body)
+        const userId = Number(req.user?.id)
+
         const Car = await prisma.car.create({
             data: {
                 name: validationCar.name,
                 colors: validationCar.colors.join(","),
-                price: validationCar.price
-
+                price: validationCar.price,
+                userId: userId
             }
         })
         res.json(Car)

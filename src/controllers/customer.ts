@@ -1,11 +1,12 @@
-import { NextFunction, Request, Response } from "express-serve-static-core";
+import { NextFunction, Request, Response } from "express";
 import RootMethod from "./root.js";
 import { prisma } from "~/lib/prisma.js";
 import { CustomerSchema } from "~/schema/customer.js";
 
 class Customer implements RootMethod {
     async GetAll(req: Request, res: Response, next: NextFunction) {
-        const customers = await prisma.customer.findMany({});
+        const userId = req.user?.id
+        const customers = await prisma.customer.findMany({ where: { userId } });
         return res.json(customers);
     }
 
@@ -21,13 +22,14 @@ class Customer implements RootMethod {
     }
     async Create(req: Request, res: Response, next: NextFunction) {
         const validationCustomer = CustomerSchema.parse(req.body)
-
+        const userId = Number(req.user?.id)
         const customer = await prisma.customer.create({
             data: {
                 name: validationCustomer.name,
                 phoneNumber: validationCustomer.phoneNumber,
                 email: validationCustomer.email,
-                career: validationCustomer.career
+                career: validationCustomer.career,
+                userId: userId
             }
         })
         return res.json(customer)

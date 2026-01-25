@@ -5,17 +5,40 @@ import SchedulerSchema from "~/schema/scheduler.js";
 
 class Scheduler implements RootMethod {
     async GetAll(req: Request, res: Response, next: NextFunction) {
-        const Scheduler = await prisma.scheduler.findMany({
-            where: {
-                userId: Number(req.user?.id)
-            },
-            include: {
-                contacts: true
-            }
-        })
-        return res.json(Scheduler)
-    }
+        try {
+            const scheduler = await prisma.scheduler.findMany({
+                where: {
+                    userId: Number(req.user?.id)
+                },
+                include: {
+                    contacts: {
+                        include: {
+                            customers: {
+                                include: {
+                                    customer: {
+                                        select: {
+                                            email: true,
+                                            phoneNumber: true
+                                        }
+                                    }
+                                }
+                            },
+                            cars: true,
+                            contents: true
+                        }
 
+                    },
+                },
+                orderBy: {
+                    dueDate: 'asc' // Sắp xếp theo hạn chót để card quan trọng lên đầu
+                }
+            });
+
+            return res.json(scheduler);
+        } catch (error) {
+            next(error);
+        }
+    }
     async GetById(req: Request, res: Response, next: NextFunction) {
         const { id } = req.params
         const Scheduler = await prisma.scheduler.findFirstOrThrow({
@@ -73,6 +96,23 @@ class Scheduler implements RootMethod {
 
         return res.json({
             deleteWithId: id,
+            deletedScheduler
+        })
+    }
+    async isSeen(req: Request, res: Response, next: NextFunction) {
+        const { id } = req.params
+
+        const deletedScheduler = await prisma.scheduler.update({
+            where: {
+                id: Number(id),
+                isNotification: true
+            }, data: {
+                isSeen: true
+            }
+        })
+
+        return res.json({
+            updateWith: id,
             deletedScheduler
         })
     }

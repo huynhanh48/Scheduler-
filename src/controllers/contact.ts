@@ -4,17 +4,27 @@ import { prisma } from "~/lib/prisma.js";
 import ContactSchema from "~/schema/contact.js";
 
 class Contact implements RootMethod {
+
     async GetAll(req: Request, res: Response, next: NextFunction) {
-        const Contacts = await prisma.contact.findMany({
+        const whereOptions = {
             where: {
                 userId: Number(req.user?.id)
             },
             include: {
                 cars: true,
-                customer: true
+                customers: {
+                    select: {
+                        customer: true
+                    }
+                },
+                contents: true
+            },
+            orderBy: {
+                createAt: "desc" as const
             }
-        })
-        return res.json(Contacts)
+        }
+        const [contacts, countTotal, countContact] = await Promise.all([prisma.contact.findMany(whereOptions), prisma.contact.CountPriority(Number(req.user?.id)), prisma.contact.countContact(Number(req.user?.id))])
+        return res.json({ contacts, countTotal, countContact })
     }
 
     async GetById(req: Request, res: Response, next: NextFunction) {
@@ -25,7 +35,7 @@ class Contact implements RootMethod {
             },
             include: {
                 cars: true,
-                customer: true
+                customers: true
             }
         })
         return res.json(Contact)
@@ -36,13 +46,20 @@ class Contact implements RootMethod {
             data: {
                 userId: Number(req.user?.id),
                 title: validationContact.title,
-                body: validationContact.body,
+                contents: {
+                    create: validationContact.contents.map((content) => ({ text: content }))
+                },
                 priority: validationContact.priority,
+                status: validationContact.status,
                 cars: {
                     connect: validationContact.cars.map(car => ({ id: car }))
                 },
-                customer: {
-                    connect: validationContact.customers.map(customer => ({ id: customer }))
+                customers: {
+                    create: validationContact.customers.map(customerId => ({
+                        customer: {
+                            connect: { id: customerId }
+                        }
+                    }))
                 }
             }
         })
@@ -57,29 +74,88 @@ class Contact implements RootMethod {
             },
             data: {
                 title: validationContact.title,
-                body: validationContact.body,
+                contents: {
+                    deleteMany: {},
+                    create: validationContact.contents.map((content) => ({ text: content }))
+                },
                 priority: validationContact.priority,
+                status: validationContact.status,
                 cars: {
                     connect: validationContact.cars.map(car => ({ id: car }))
                 },
-                customer: {
-                    set: validationContact.customers.map(customer => ({ id: customer }))
+                customers: {
+                    deleteMany: {},
+                    create: validationContact.customers.map(customerId => ({
+                        customer: {
+                            connect: { id: customerId }
+                        }
+                    }))
                 }
             }
         })
         return res.json(newContacts)
     }
     async Delete(req: Request, res: Response, next: NextFunction) {
-        const { id } = req.params
-        const contact = await prisma.contact.delete({
-            where: {
-                id: Number(id)
-            }
-        })
+        const { id } = req.params;
+        const contactId = Number(id);
+
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.car.updateMany({
+                where: { contactId: contactId },
+                data: { contactId: null }
+            });
+
+            await tx.contactOnCustomer.deleteMany({
+                where: { contactId: contactId }
+            });
+
+            return await tx.contact.delete({
+                where: { id: contactId }
+            });
+        });
+
         return res.json({
             deleteWithId: id,
-            contact
-        })
+            contact: result
+        });
+    }
+    async GETROOT(req: Request, res: Response, next: NextFunction) {
+        const userId = req.user?.id
+        const sortDate = {
+            orderBy: {
+                createAt: "desc" as const
+            },
+            where: {
+                userId
+            }
+        }
+        const whereOptionsOfContact = {
+            where: {
+                userId: Number(req.user?.id)
+            },
+            include: {
+                cars: true,
+                customers: {
+                    select: {
+                        customer: {
+                            select: {
+                                id: true,
+                                email: true,
+                                phoneNumber: true,
+                                name: true
+                            }
+                        }
+
+                    }
+                },
+                contents: true
+            },
+            orderBy: {
+                createAt: "desc" as const
+            }
+        }
+        const [contacts, customers, cars] = await Promise.all([prisma.contact.findMany(whereOptionsOfContact), prisma.customer.findMany(sortDate), prisma.car.findMany(sortDate)])
+        return res.json({ contacts, customers, cars })
     }
 }
 
